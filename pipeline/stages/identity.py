@@ -6,7 +6,6 @@ import polars as pl
 
 from pipeline.config import REEP_BASE_URL
 
-
 PEOPLE_COLUMNS = {
     "reep_id": "reep_id",
     "type": "type",
@@ -54,9 +53,7 @@ def ingest_people_csv(conn: sqlite3.Connection, csv_path: Path) -> int:
     available_db_cols = [PEOPLE_COLUMNS[c] for c in available]
     placeholders = ", ".join("?" for _ in available_db_cols)
     col_names = ", ".join(available_db_cols)
-    updates = ", ".join(
-        f"{c} = excluded.{c}" for c in available_db_cols if c != "reep_id"
-    )
+    updates = ", ".join(f"{c} = excluded.{c}" for c in available_db_cols if c != "reep_id")
 
     sql = (
         f"INSERT INTO people ({col_names}) VALUES ({placeholders}) "
@@ -84,9 +81,7 @@ def ingest_teams_csv(conn: sqlite3.Connection, csv_path: Path) -> int:
     available_db_cols = [TEAMS_COLUMNS[c] for c in available]
     placeholders = ", ".join("?" for _ in available_db_cols)
     col_names = ", ".join(available_db_cols)
-    updates = ", ".join(
-        f"{c} = excluded.{c}" for c in available_db_cols if c != "reep_id"
-    )
+    updates = ", ".join(f"{c} = excluded.{c}" for c in available_db_cols if c != "reep_id")
 
     sql = (
         f"INSERT INTO teams ({col_names}) VALUES ({placeholders}) "
