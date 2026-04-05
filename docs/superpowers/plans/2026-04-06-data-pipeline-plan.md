@@ -6,7 +6,7 @@
 
 **Architecture:** Python scripts orchestrated by a CLI entry point. Each pipeline stage (identity, stats, compute) is an independent module. Polars for data processing, libsql for Turso access. GitHub Actions runs the pipeline weekly.
 
-**Tech Stack:** Python 3.12+, polars, libsql, soccerdata (FBref/Understat), httpx (Reep API/ClubElo), pytest
+**Tech Stack:** Python 3.12+, polars, libsql, soccerdata (FBref/Understat), httpx (Reep API/ClubElo), pytest, uv (package manager), ruff (linter/formatter)
 
 ---
 
@@ -74,14 +74,22 @@ dependencies = [
     "python-dotenv>=1.0",
 ]
 
-[project.optional-dependencies]
+[dependency-groups]
 dev = [
     "pytest>=8.0",
     "pytest-asyncio>=0.24",
+    "ruff>=0.9",
 ]
 
 [project.scripts]
 pitch-intel = "pipeline.cli:main"
+
+[tool.ruff]
+target-version = "py312"
+line-length = 100
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP"]
 ```
 
 - [ ] **Step 2: Create .env.example**
@@ -102,6 +110,7 @@ __pycache__/
 *.db
 dist/
 .soccerdata/
+.python-version
 ```
 
 - [ ] **Step 4: Create empty __init__.py files**
@@ -113,8 +122,8 @@ Create empty files at:
 
 - [ ] **Step 5: Install dependencies**
 
-Run: `cd pitch-intel && python -m venv .venv && source .venv/bin/activate && pip install -e ".[dev]"`
-Expected: All packages install successfully.
+Run: `cd pitch-intel && uv sync`
+Expected: All packages install successfully into .venv via uv.
 
 - [ ] **Step 6: Commit**
 
@@ -662,7 +671,7 @@ def test_ingest_filters_players_only(db):
 
 - [ ] **Step 3: Run tests to verify they fail**
 
-Run: `python -m pytest tests/test_identity.py -v`
+Run: `uv run pytest tests/test_identity.py -v`
 Expected: FAIL — `ModuleNotFoundError: No module named 'pipeline.stages.identity'`
 
 - [ ] **Step 4: Implement the identity stage**
@@ -787,7 +796,7 @@ def ingest_teams_csv(conn: sqlite3.Connection, csv_path: Path) -> int:
 
 - [ ] **Step 5: Run tests to verify they pass**
 
-Run: `python -m pytest tests/test_identity.py -v`
+Run: `uv run pytest tests/test_identity.py -v`
 Expected: 4 tests PASS
 
 - [ ] **Step 6: Commit**
@@ -843,7 +852,7 @@ def test_download_reep_csvs(tmp_path):
 
 - [ ] **Step 2: Run test to verify it fails**
 
-Run: `python -m pytest tests/test_identity_download.py -v`
+Run: `uv run pytest tests/test_identity_download.py -v`
 Expected: FAIL — `ImportError: cannot import name 'download_reep_csvs'`
 
 - [ ] **Step 3: Implement download_reep_csvs**
@@ -877,7 +886,7 @@ def download_reep_csvs(dest_dir: Path) -> tuple[Path, Path]:
 
 - [ ] **Step 4: Run test to verify it passes**
 
-Run: `python -m pytest tests/test_identity_download.py -v`
+Run: `uv run pytest tests/test_identity_download.py -v`
 Expected: PASS
 
 - [ ] **Step 5: Commit**
@@ -981,7 +990,7 @@ def test_normalize_fbref_stats_handles_missing_columns():
 
 - [ ] **Step 2: Run test to verify it fails**
 
-Run: `python -m pytest tests/test_fbref.py -v`
+Run: `uv run pytest tests/test_fbref.py -v`
 Expected: FAIL — `ModuleNotFoundError: No module named 'pipeline.stages.fbref'`
 
 - [ ] **Step 3: Implement the FBref stage**
@@ -1092,7 +1101,7 @@ def fetch_fbref_season(league_code: str, season: str) -> pd.DataFrame | None:
 
 - [ ] **Step 4: Run tests to verify they pass**
 
-Run: `python -m pytest tests/test_fbref.py -v`
+Run: `uv run pytest tests/test_fbref.py -v`
 Expected: 2 tests PASS
 
 - [ ] **Step 5: Commit**
@@ -1180,7 +1189,7 @@ def test_normalize_understat_shots():
 
 - [ ] **Step 2: Run test to verify it fails**
 
-Run: `python -m pytest tests/test_understat.py -v`
+Run: `uv run pytest tests/test_understat.py -v`
 Expected: FAIL — `ModuleNotFoundError`
 
 - [ ] **Step 3: Implement the Understat stage**
@@ -1263,7 +1272,7 @@ def fetch_understat_league(league: str, season: str) -> tuple[pd.DataFrame | Non
 
 - [ ] **Step 4: Run tests to verify they pass**
 
-Run: `python -m pytest tests/test_understat.py -v`
+Run: `uv run pytest tests/test_understat.py -v`
 Expected: 2 tests PASS
 
 - [ ] **Step 5: Commit**
@@ -1324,7 +1333,7 @@ def test_fetch_clubelo_ratings(tmp_path):
 
 - [ ] **Step 2: Run test to verify it fails**
 
-Run: `python -m pytest tests/test_clubelo.py -v`
+Run: `uv run pytest tests/test_clubelo.py -v`
 Expected: FAIL — `ModuleNotFoundError`
 
 - [ ] **Step 3: Implement the ClubElo stage**
@@ -1369,7 +1378,7 @@ def fetch_clubelo_ratings(date_str: str | None = None) -> pl.DataFrame:
 
 - [ ] **Step 4: Run tests to verify they pass**
 
-Run: `python -m pytest tests/test_clubelo.py -v`
+Run: `uv run pytest tests/test_clubelo.py -v`
 Expected: 2 tests PASS
 
 - [ ] **Step 5: Commit**
@@ -1487,7 +1496,7 @@ def test_resolve_clubelo_to_reep(db):
 
 - [ ] **Step 2: Run test to verify it fails**
 
-Run: `python -m pytest tests/test_resolve.py -v`
+Run: `uv run pytest tests/test_resolve.py -v`
 Expected: FAIL — `ModuleNotFoundError`
 
 - [ ] **Step 3: Implement entity resolution**
@@ -1598,7 +1607,7 @@ def resolve_clubelo_to_reep(
 
 - [ ] **Step 4: Run tests to verify they pass**
 
-Run: `python -m pytest tests/test_resolve.py -v`
+Run: `uv run pytest tests/test_resolve.py -v`
 Expected: 4 tests PASS
 
 - [ ] **Step 5: Commit**
@@ -1688,7 +1697,7 @@ def test_compute_percentiles():
 
 - [ ] **Step 2: Run test to verify it fails**
 
-Run: `python -m pytest tests/test_compute.py -v`
+Run: `uv run pytest tests/test_compute.py -v`
 Expected: FAIL — `ModuleNotFoundError`
 
 - [ ] **Step 3: Implement the compute stage**
@@ -1780,7 +1789,7 @@ def compute_percentiles(df: pl.DataFrame) -> pl.DataFrame:
 
 - [ ] **Step 4: Run tests to verify they pass**
 
-Run: `python -m pytest tests/test_compute.py -v`
+Run: `uv run pytest tests/test_compute.py -v`
 Expected: 2 tests PASS
 
 - [ ] **Step 5: Commit**
@@ -1900,7 +1909,7 @@ def test_log_pipeline_run(db):
 
 - [ ] **Step 2: Run test to verify it fails**
 
-Run: `python -m pytest tests/test_db_writes.py -v`
+Run: `uv run pytest tests/test_db_writes.py -v`
 Expected: FAIL — `ImportError: cannot import name 'upsert_player_stats'`
 
 - [ ] **Step 3: Implement write helpers**
@@ -2022,7 +2031,7 @@ def log_pipeline_run(
 
 - [ ] **Step 4: Run tests to verify they pass**
 
-Run: `python -m pytest tests/test_db_writes.py -v`
+Run: `uv run pytest tests/test_db_writes.py -v`
 Expected: 3 tests PASS
 
 - [ ] **Step 5: Commit**
@@ -2198,7 +2207,7 @@ if __name__ == "__main__":
 
 - [ ] **Step 2: Test the CLI runs**
 
-Run: `cd pitch-intel && python -m pipeline.cli init --local-db test.db`
+Run: `cd pitch-intel && uv run python -m pipeline.cli init --local-db test.db`
 Expected: "Schema initialized."
 
 Run: `rm test.db`
@@ -2238,20 +2247,21 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+
       - name: Set up Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: '3.12'
+        run: uv python install 3.12
 
       - name: Install dependencies
-        run: pip install -e .
+        run: uv sync
 
       - name: Run pipeline
         env:
           TURSO_DATABASE_URL: ${{ secrets.TURSO_DATABASE_URL }}
           TURSO_AUTH_TOKEN: ${{ secrets.TURSO_AUTH_TOKEN }}
           REEP_API_KEY: ${{ secrets.REEP_API_KEY }}
-        run: python -m pipeline.cli run --season 2025-2026
+        run: uv run python -m pipeline.cli run --season 2025-2026
 ```
 
 - [ ] **Step 2: Commit**
