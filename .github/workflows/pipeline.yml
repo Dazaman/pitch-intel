@@ -1,0 +1,31 @@
+name: Data Pipeline
+
+on:
+  schedule:
+    # Every Monday at 06:00 UTC (after Reep's weekly refresh)
+    - cron: '0 6 * * 1'
+  workflow_dispatch: # Allow manual runs
+
+jobs:
+  pipeline:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+
+      - name: Set up Python
+        run: uv python install 3.12
+
+      - name: Install dependencies
+        run: uv sync
+
+      - name: Run pipeline
+        env:
+          TURSO_DATABASE_URL: ${{ secrets.TURSO_DATABASE_URL }}
+          TURSO_AUTH_TOKEN: ${{ secrets.TURSO_AUTH_TOKEN }}
+          REEP_API_KEY: ${{ secrets.REEP_API_KEY }}
+        run: uv run python -m pipeline.cli run --season 2025-2026
