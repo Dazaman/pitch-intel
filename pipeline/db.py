@@ -1,5 +1,5 @@
 import sqlite3
-from datetime import datetime
+from datetime import UTC, datetime
 
 import polars as pl
 
@@ -162,7 +162,7 @@ def log_pipeline_run(
            (started_at, status, people_count, teams_count, stats_fetched, match_rate, error_log)
            VALUES (?, ?, ?, ?, ?, ?, ?)""",
         (
-            datetime.utcnow().isoformat(),
+            datetime.now(UTC).isoformat(),
             status,
             people_count,
             teams_count,
