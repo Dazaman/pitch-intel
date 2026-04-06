@@ -127,3 +127,87 @@ export async function getPlayerRadar(
   const params = season ? `?season=${season}` : "";
   return fetchApi<RadarData | null>(`/player/${reepId}/radar${params}`);
 }
+
+export interface TeamProfile {
+  reep_id: string;
+  name: string;
+  country?: string;
+  founded?: string;
+  stadium?: string;
+  key_transfermarkt?: string;
+  key_fbref?: string;
+}
+
+export interface TeamSeasonStats {
+  season: string;
+  league: string;
+  source: string;
+  wins?: number;
+  draws?: number;
+  losses?: number;
+  goals_for?: number;
+  goals_against?: number;
+  xg?: number;
+  xga?: number;
+  ppda?: number;
+  elo_start?: number;
+  elo_end?: number;
+}
+
+export interface SquadMember {
+  reep_id: string;
+  name: string;
+  position?: string;
+  nationality?: string;
+  date_of_birth?: string;
+  minutes_played?: number;
+  goals?: number;
+  assists?: number;
+  xg?: number;
+}
+
+export interface ScatterPoint {
+  reep_id: string;
+  name: string;
+  position?: string;
+  league: string;
+  x_value?: number;
+  y_value?: number;
+}
+
+export async function getTeam(reepId: string): Promise<TeamProfile> {
+  return fetchApi<TeamProfile>(`/team/${reepId}`);
+}
+
+export async function getTeamStats(
+  reepId: string,
+  season?: string,
+): Promise<TeamSeasonStats[]> {
+  const params = season ? `?season=${season}` : "";
+  return fetchApi<TeamSeasonStats[]>(`/team/${reepId}/stats${params}`);
+}
+
+export async function getTeamSquad(
+  reepId: string,
+  season: string,
+): Promise<SquadMember[]> {
+  return fetchApi<SquadMember[]>(`/team/${reepId}/squad?season=${season}`);
+}
+
+export async function getCompareTeams(
+  ids: string[],
+): Promise<Record<string, { name: string; seasons: TeamSeasonStats[] }>> {
+  return fetchApi(`/compare/teams?ids=${ids.join(",")}`);
+}
+
+export async function getScatter(
+  x: string,
+  y: string,
+  league?: string,
+  position?: string,
+): Promise<ScatterPoint[]> {
+  const params = new URLSearchParams({ x, y });
+  if (league) params.set("league", league);
+  if (position) params.set("position", position);
+  return fetchApi<ScatterPoint[]>(`/explore/scatter?${params}`);
+}
