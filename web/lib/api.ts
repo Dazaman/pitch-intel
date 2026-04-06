@@ -211,3 +211,72 @@ export async function getScatter(
   if (position) params.set("position", position);
   return fetchApi<ScatterPoint[]>(`/explore/scatter?${params}`);
 }
+
+export interface SimilarPlayer {
+  reep_id: string;
+  name: string;
+  position?: string;
+  similarity: number;
+}
+
+export interface FitAnalysis {
+  player_name: string;
+  team_name: string;
+  position_rank?: number;
+  position_total?: number;
+  style_notes: string[];
+}
+
+export interface TeamStyleProfile {
+  reep_id: string;
+  season: string;
+  league: string;
+  possession_score?: number;
+  pressing_score?: number;
+  directness_score?: number;
+  avg_age?: number;
+  squad_size?: number;
+  fw_depth?: number;
+  mf_depth?: number;
+  df_depth?: number;
+  gk_depth?: number;
+}
+
+export interface GapAnalysisItem {
+  position_group: string;
+  depth: number;
+  avg_age?: number;
+  risk: string;
+}
+
+export interface ClusterPoint {
+  reep_id: string;
+  name: string;
+  position?: string;
+  cluster_id: number;
+  cluster_label: string;
+  umap_x: number;
+  umap_y: number;
+}
+
+export async function getSimilarPlayers(reepId: string, n: number = 10): Promise<SimilarPlayer[]> {
+  return fetchApi<SimilarPlayer[]>(`/player/${reepId}/similar?n=${n}`);
+}
+
+export async function getPlayerFit(reepId: string, teamId: string): Promise<FitAnalysis> {
+  return fetchApi<FitAnalysis>(`/player/${reepId}/fit?team=${teamId}`);
+}
+
+export async function getTeamStyleProfile(reepId: string, season?: string): Promise<TeamStyleProfile | null> {
+  const params = season ? `?season=${season}` : "";
+  return fetchApi<TeamStyleProfile | null>(`/team/${reepId}/profile${params}`);
+}
+
+export async function getTeamGaps(reepId: string, season?: string): Promise<GapAnalysisItem[]> {
+  const params = season ? `?season=${season}` : "";
+  return fetchApi<GapAnalysisItem[]>(`/team/${reepId}/gaps${params}`);
+}
+
+export async function getClusters(season: string): Promise<ClusterPoint[]> {
+  return fetchApi<ClusterPoint[]>(`/explore/clusters?season=${season}`);
+}
