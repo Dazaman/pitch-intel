@@ -80,7 +80,7 @@ export default function SearchBar() {
         value={query}
         onChange={(e) => setQuery(e.target.value)}
         placeholder={`Search ${type}s...`}
-        className="w-full rounded-lg border border-gray-700 bg-gray-900 px-4 py-3 text-lg placeholder-gray-500 focus:border-blue-500 focus:outline-none"
+        className="w-full rounded-lg border border-gray-600 bg-gray-800 px-4 py-3 text-lg text-white placeholder-gray-400 focus:border-blue-500 focus:outline-none"
       />
 
       {isLoading && (
@@ -88,12 +88,12 @@ export default function SearchBar() {
       )}
 
       {isOpen && results.length > 0 && (
-        <ul className="absolute z-10 mt-1 w-full rounded-lg border border-gray-700 bg-gray-900 shadow-lg max-h-80 overflow-y-auto">
+        <ul className="absolute z-10 mt-1 w-full rounded-lg border border-gray-600 bg-gray-800 shadow-lg max-h-80 overflow-y-auto">
           {results.map((item) => (
             <li key={item.reep_id}>
               <button
                 onClick={() => handleSelect(item)}
-                className="w-full px-4 py-3 text-left hover:bg-gray-800 flex justify-between items-center"
+                className="w-full px-4 py-3 text-left hover:bg-gray-700 flex justify-between items-center"
               >
                 <span className="font-medium">{item.name}</span>
                 {"position" in item && item.position && (
