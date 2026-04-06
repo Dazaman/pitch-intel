@@ -4,25 +4,31 @@ from pipeline.stages.understat import normalize_understat_players, normalize_und
 
 
 def test_normalize_understat_players():
-    """Should convert raw Understat player data to our schema."""
+    """Should convert raw soccerdata Understat player data to our schema."""
     import pandas as pd
 
+    # Simulate soccerdata's MultiIndex DataFrame format
     raw = pd.DataFrame(
         {
-            "id": [10903, 7704],
-            "player_name": ["Cole Palmer", "Cristiano Ronaldo"],
-            "team": ["Chelsea", "Al Nassr"],
-            "games": [32, 28],
-            "time": [2800, 2400],
+            "player_id": [10903, 7704],
+            "matches": [32, 28],
+            "minutes": [2800, 2400],
             "goals": [22, 15],
-            "xG": [18.5, 14.2],
+            "xg": [18.5, 14.2],
             "assists": [11, 4],
-            "xA": [9.8, 3.5],
+            "xa": [9.8, 3.5],
             "shots": [95, 88],
             "key_passes": [55, 30],
-            "npg": [20, 13],
-            "npxG": [16.2, 12.0],
-        }
+            "np_goals": [20, 13],
+            "np_xg": [16.2, 12.0],
+        },
+        index=pd.MultiIndex.from_tuples(
+            [
+                ("ENG-Premier League", "2425", "Chelsea", "Cole Palmer"),
+                ("ENG-Premier League", "2425", "Al Nassr", "Cristiano Ronaldo"),
+            ],
+            names=["league", "season", "team", "player"],
+        ),
     )
 
     result = normalize_understat_players(raw, season="2024-2025", league="EPL")

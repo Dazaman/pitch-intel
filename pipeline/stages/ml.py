@@ -23,10 +23,11 @@ CLUSTER_LABELS = {
 
 def compute_embeddings(per90_df: pl.DataFrame) -> pl.DataFrame:
     stat_cols = [c for c in PER90_OUTPUT_NAMES if c in per90_df.columns]
-    matrix = per90_df.select(stat_cols).fill_null(0).to_numpy().astype(np.float32)
+    matrix = per90_df.select(stat_cols).fill_null(0).fill_nan(0).to_numpy().astype(np.float32)
 
     scaler = MinMaxScaler()
-    normalized = scaler.fit_transform(matrix).astype(np.float32)
+    normalized = scaler.fit_transform(matrix)
+    normalized = np.nan_to_num(normalized, nan=0.0).astype(np.float32)
 
     reep_ids = per90_df["reep_id"].to_list()
     embeddings = [row.tobytes() for row in normalized]

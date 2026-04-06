@@ -179,7 +179,8 @@ def run(local_db, season, partial, skip_identity, skip_fbref, skip_understat):
     try:
         import polars as pl
 
-        from pipeline.stages.compute import compute_per90
+        from pipeline.db import upsert_player_per90
+        from pipeline.stages.compute import compute_per90, compute_percentiles
 
         rows = conn.execute(
             "SELECT * FROM player_season_stats WHERE season = ?", (season,)
@@ -191,7 +192,47 @@ def run(local_db, season, partial, skip_identity, skip_fbref, skip_understat):
             ]
             stats_df = pl.DataFrame([dict(zip(columns, row)) for row in rows])
             per90 = compute_per90(stats_df)
-            click.echo(f"  {len(per90)} players with per-90 stats.")
+
+            # Add position_group and season/league for upsert
+            people_rows = conn.execute("SELECT reep_id, position FROM people").fetchall()
+            pos_map = {r[0]: r[1] for r in people_rows}
+            from pipeline.config import POSITION_GROUPS
+
+            per90 = per90.with_columns(
+                [
+                    pl.col("reep_id")
+                    .map_elements(
+                        lambda rid: POSITION_GROUPS.get(pos_map.get(rid, ""), "MF"),
+                        return_dtype=pl.Utf8,
+                    )
+                    .alias("position_group"),
+                    pl.lit(season).alias("season"),
+                    pl.lit(
+                        list(leagues_to_fetch.values())[0] if len(leagues_to_fetch) == 1 else ""
+                    ).alias("league"),
+                ]
+            )
+
+            # Add minutes from stats
+            mins_map = {
+                r[0]: r[1]
+                for r in conn.execute(
+                    "SELECT reep_id, minutes_played FROM player_season_stats WHERE season = ?",
+                    (season,),
+                ).fetchall()
+            }
+            per90 = per90.with_columns(
+                pl.col("reep_id")
+                .map_elements(
+                    lambda rid: mins_map.get(rid, 0),
+                    return_dtype=pl.Int64,
+                )
+                .alias("minutes_played")
+            )
+
+            per90_with_pctile = compute_percentiles(per90)
+            upsert_player_per90(conn, per90_with_pctile)
+            click.echo(f"  {len(per90_with_pctile)} players with per-90 stats written.")
         else:
             click.echo("  No stats to compute per-90 for.")
     except Exception as e:
