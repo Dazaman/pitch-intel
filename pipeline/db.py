@@ -13,7 +13,7 @@ def get_connection(local_path: str | None = None) -> sqlite3.Connection:
     Otherwise connect to Turso via libsql.
     """
     if local_path:
-        return sqlite3.connect(local_path)
+        return sqlite3.connect(local_path, check_same_thread=False)
 
     import libsql_experimental as libsql
 
