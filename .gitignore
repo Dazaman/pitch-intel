@@ -7,3 +7,4 @@ dist/
 .soccerdata/
 .python-version
 *.egg-info/
+local.db

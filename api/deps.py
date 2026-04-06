@@ -1,3 +1,4 @@
+import os
 import sqlite3
 
 from pipeline.db import get_connection, init_schema
@@ -9,7 +10,8 @@ def get_db() -> sqlite3.Connection:
     """Return the shared DB connection. Creates it on first call."""
     global _conn
     if _conn is None:
-        _conn = get_connection()
+        local_path = os.environ.get("LOCAL_DB_PATH")
+        _conn = get_connection(local_path)
         _conn.row_factory = sqlite3.Row
         init_schema(_conn)
     return _conn
