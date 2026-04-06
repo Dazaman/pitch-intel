@@ -57,3 +57,47 @@ def scatter(
 
     rows = conn.execute(sql, params).fetchall()
     return [ScatterPoint(**dict(row)) for row in rows]
+
+
+@router.get("/explore/clusters")
+def get_clusters(season: str = Query(default="2024-2025")):
+    import numpy as np
+
+    conn = get_db()
+
+    rows = conn.execute(
+        """SELECT pe.reep_id, p.name, p.position, pe.cluster_id, pe.cluster_label, pe.embedding
+           FROM player_embeddings pe
+           JOIN people p ON pe.reep_id = p.reep_id
+           WHERE pe.season = ?""",
+        (season,),
+    ).fetchall()
+
+    if not rows:
+        return []
+
+    vectors = np.array([np.frombuffer(r["embedding"], dtype=np.float32) for r in rows])
+
+    try:
+        import umap
+
+        reducer = umap.UMAP(n_components=2, random_state=42, n_neighbors=min(15, len(vectors) - 1))
+        coords = reducer.fit_transform(vectors)
+    except Exception:
+        from sklearn.decomposition import PCA
+
+        pca = PCA(n_components=2, random_state=42)
+        coords = pca.fit_transform(vectors)
+
+    return [
+        {
+            "reep_id": r["reep_id"],
+            "name": r["name"],
+            "position": r["position"],
+            "cluster_id": r["cluster_id"],
+            "cluster_label": r["cluster_label"],
+            "umap_x": round(float(coords[i][0]), 4),
+            "umap_y": round(float(coords[i][1]), 4),
+        }
+        for i, r in enumerate(rows)
+    ]

@@ -136,3 +136,50 @@ class ScatterPoint(BaseModel):
     league: str
     x_value: float | None = None
     y_value: float | None = None
+
+
+class SimilarPlayer(BaseModel):
+    reep_id: str
+    name: str
+    position: str | None = None
+    similarity: float
+
+
+class FitAnalysis(BaseModel):
+    player_name: str
+    team_name: str
+    position_rank: int | None = None
+    position_total: int | None = None
+    style_notes: list[str]
+
+
+class TeamStyleProfile(BaseModel):
+    reep_id: str
+    season: str
+    league: str
+    possession_score: float | None = None
+    pressing_score: float | None = None
+    directness_score: float | None = None
+    avg_age: float | None = None
+    squad_size: int | None = None
+    fw_depth: int | None = None
+    mf_depth: int | None = None
+    df_depth: int | None = None
+    gk_depth: int | None = None
+
+
+class GapAnalysisItem(BaseModel):
+    position_group: str
+    depth: int
+    avg_age: float | None = None
+    risk: str
+
+
+class ClusterPoint(BaseModel):
+    reep_id: str
+    name: str
+    position: str | None = None
+    cluster_id: int
+    cluster_label: str
+    umap_x: float
+    umap_y: float
