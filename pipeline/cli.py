@@ -198,6 +198,46 @@ def run(local_db, season, partial, skip_identity, skip_fbref, skip_understat):
         errors.append(f"Compute: {e}")
         click.echo(f"  ERROR: {e}")
 
+    # Stage 5: ML features
+    click.echo("Stage 5: Computing ML features...")
+    try:
+        import polars as pl
+
+        from pipeline.db import upsert_embeddings, upsert_team_profiles
+        from pipeline.stages.ml import compute_clusters, compute_embeddings, compute_team_profiles
+
+        per90_rows = conn.execute(
+            "SELECT * FROM player_per90 WHERE season = ?", (season,)
+        ).fetchall()
+        if per90_rows:
+            per90_cols = [
+                desc[0] for desc in conn.execute("SELECT * FROM player_per90 LIMIT 0").description
+            ]
+            per90_df = pl.DataFrame([dict(zip(per90_cols, row)) for row in per90_rows])
+
+            emb_df = compute_embeddings(per90_df)
+            emb_df = emb_df.with_columns(pl.lit(season).alias("season"))
+
+            clustered = compute_clusters(emb_df)
+            emb_with_clusters = emb_df.join(
+                clustered.select("reep_id", "cluster_id", "cluster_label"),
+                on="reep_id",
+            )
+            upsert_embeddings(conn, emb_with_clusters)
+            click.echo(f"  {len(emb_with_clusters)} player embeddings computed.")
+        else:
+            click.echo("  No per-90 data for embeddings.")
+
+        profiles = compute_team_profiles(conn, season)
+        if profiles:
+            upsert_team_profiles(conn, profiles)
+            click.echo(f"  {len(profiles)} team profiles computed.")
+        else:
+            click.echo("  No team profiles to compute (no squad data).")
+    except Exception as e:
+        errors.append(f"ML features: {e}")
+        click.echo(f"  ERROR: {e}")
+
     # Log completion
     stats_fetched = fbref_total + understat_total
     status = "completed" if not errors else "completed_with_errors"

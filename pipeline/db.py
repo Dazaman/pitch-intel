@@ -147,6 +147,70 @@ def upsert_player_per90(conn: sqlite3.Connection, df: pl.DataFrame) -> int:
     return len(rows)
 
 
+def upsert_embeddings(conn: sqlite3.Connection, df: pl.DataFrame) -> int:
+    """Upsert player embeddings. Returns row count."""
+    rows = df.to_dicts()
+    for row in rows:
+        conn.execute(
+            """INSERT INTO player_embeddings (reep_id, season, embedding, cluster_id, cluster_label)
+               VALUES (?, ?, ?, ?, ?)
+               ON CONFLICT(reep_id) DO UPDATE SET
+               season = excluded.season, embedding = excluded.embedding,
+               cluster_id = excluded.cluster_id, cluster_label = excluded.cluster_label,
+               computed_at = datetime('now')""",
+            (
+                row["reep_id"],
+                row.get("season", ""),
+                row["embedding"],
+                row.get("cluster_id"),
+                row.get("cluster_label"),
+            ),
+        )
+    conn.commit()
+    return len(rows)
+
+
+def upsert_team_profiles(conn: sqlite3.Connection, profiles: list[dict]) -> int:
+    """Upsert team profiles. Returns row count."""
+    for p in profiles:
+        conn.execute(
+            """INSERT INTO team_profiles
+               (reep_id, season, league, possession_score, pressing_score,
+                directness_score, set_piece_reliance, avg_age, squad_size,
+                foreign_player_pct, fw_depth, mf_depth, df_depth, gk_depth)
+               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+               ON CONFLICT(reep_id, season, league) DO UPDATE SET
+               possession_score = excluded.possession_score,
+               pressing_score = excluded.pressing_score,
+               directness_score = excluded.directness_score,
+               avg_age = excluded.avg_age, squad_size = excluded.squad_size,
+               fw_depth = excluded.fw_depth, mf_depth = excluded.mf_depth,
+               df_depth = excluded.df_depth, gk_depth = excluded.gk_depth,
+               computed_at = datetime('now')""",
+            tuple(
+                p[k]
+                for k in [
+                    "reep_id",
+                    "season",
+                    "league",
+                    "possession_score",
+                    "pressing_score",
+                    "directness_score",
+                    "set_piece_reliance",
+                    "avg_age",
+                    "squad_size",
+                    "foreign_player_pct",
+                    "fw_depth",
+                    "mf_depth",
+                    "df_depth",
+                    "gk_depth",
+                ]
+            ),
+        )
+    conn.commit()
+    return len(profiles)
+
+
 def log_pipeline_run(
     conn: sqlite3.Connection,
     status: str = "running",
