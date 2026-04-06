@@ -21,7 +21,13 @@ TOP_5_LEAGUES = {
     "FRA-Ligue 1": "Ligue 1",
 }
 
-UNDERSTAT_LEAGUES = ["EPL", "La_Liga", "Bundesliga", "Serie_A", "Ligue_1"]
+UNDERSTAT_LEAGUES = [
+    "ENG-Premier League",
+    "ESP-La Liga",
+    "GER-Bundesliga",
+    "ITA-Serie A",
+    "FRA-Ligue 1",
+]
 
 CURRENT_SEASON = "2025-2026"
 

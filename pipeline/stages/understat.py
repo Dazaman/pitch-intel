@@ -7,24 +7,30 @@ def normalize_understat_players(
     season: str,
     league: str,
 ) -> pl.DataFrame:
-    """Normalize raw Understat player data into our schema."""
+    """Normalize raw soccerdata Understat player data into our schema.
+
+    soccerdata returns a MultiIndex DataFrame with index: league, season, team, player
+    and columns: player_id, matches, minutes, goals, xg, np_xg, assists, xa, shots, etc.
+    """
+    df = raw_df.reset_index()
+
     return pl.DataFrame(
         {
-            "understat_id": [str(x) for x in raw_df["id"].tolist()],
-            "player_name": raw_df["player_name"].tolist(),
-            "team_name": raw_df["team"].tolist(),
-            "season": [season] * len(raw_df),
-            "league": [league] * len(raw_df),
-            "minutes_played": raw_df["time"].tolist(),
-            "games": raw_df["games"].tolist(),
-            "goals": raw_df["goals"].tolist(),
-            "xg": raw_df["xG"].tolist(),
-            "npxg": raw_df["npxG"].tolist(),
-            "assists": raw_df["assists"].tolist(),
-            "xa": raw_df["xA"].tolist(),
-            "shots": raw_df["shots"].tolist(),
-            "key_passes": raw_df["key_passes"].tolist(),
-            "source": ["understat"] * len(raw_df),
+            "understat_id": [str(x) for x in df["player_id"].tolist()],
+            "player_name": df["player"].tolist(),
+            "team_name": df["team"].tolist(),
+            "season": [season] * len(df),
+            "league": [league] * len(df),
+            "minutes_played": df["minutes"].tolist(),
+            "games": df["matches"].tolist(),
+            "goals": df["goals"].tolist(),
+            "xg": df["xg"].tolist(),
+            "npxg": df["np_xg"].tolist(),
+            "assists": df["assists"].tolist(),
+            "xa": df["xa"].tolist(),
+            "shots": df["shots"].tolist(),
+            "key_passes": df["key_passes"].tolist(),
+            "source": ["understat"] * len(df),
         }
     )
 

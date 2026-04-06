@@ -62,7 +62,7 @@ def ingest_people_csv(conn: sqlite3.Connection, csv_path: Path) -> int:
     )
 
     for row in rows:
-        values = [row.get(c) for c in available]
+        values = tuple(row.get(c) for c in available)
         conn.execute(sql, values)
 
     conn.commit()
@@ -90,7 +90,7 @@ def ingest_teams_csv(conn: sqlite3.Connection, csv_path: Path) -> int:
     )
 
     for row in rows:
-        values = [row.get(c) for c in available]
+        values = tuple(row.get(c) for c in available)
         conn.execute(sql, values)
 
     conn.commit()

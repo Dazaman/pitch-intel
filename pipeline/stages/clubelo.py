@@ -7,7 +7,7 @@ import polars as pl
 
 def parse_clubelo_csv(csv_text: str) -> pl.DataFrame:
     """Parse ClubElo CSV response into a polars DataFrame."""
-    df = pl.read_csv(io.StringIO(csv_text))
+    df = pl.read_csv(io.StringIO(csv_text), infer_schema_length=10000, null_values=["None", ""])
     return df.rename(
         {
             "Rank": "rank",

@@ -90,7 +90,7 @@ def upsert_player_stats(conn: sqlite3.Connection, df: pl.DataFrame) -> int:
 
     rows = df.to_dicts()
     for row in rows:
-        values = [row.get(c) for c in available]
+        values = tuple(row.get(c) for c in available)
         conn.execute(sql, values)
 
     conn.commit()
@@ -116,7 +116,7 @@ def upsert_team_stats(conn: sqlite3.Connection, df: pl.DataFrame) -> int:
 
     rows = df.to_dicts()
     for row in rows:
-        values = [row.get(c) for c in available]
+        values = tuple(row.get(c) for c in available)
         conn.execute(sql, values)
 
     conn.commit()
@@ -140,7 +140,7 @@ def upsert_player_per90(conn: sqlite3.Connection, df: pl.DataFrame) -> int:
 
     rows = df.to_dicts()
     for row in rows:
-        values = [row.get(c) for c in available]
+        values = tuple(row.get(c) for c in available)
         conn.execute(sql, values)
 
     conn.commit()

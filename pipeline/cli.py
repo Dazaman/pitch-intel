@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import UTC, datetime
 from pathlib import Path
 from tempfile import TemporaryDirectory
 
@@ -29,70 +29,137 @@ def init(local_db):
 @main.command()
 @click.option("--local-db", type=str, default=None)
 @click.option("--season", type=str, default=CURRENT_SEASON)
-def run(local_db, season):
-    """Run the full pipeline: identity -> stats -> resolve -> compute."""
+@click.option(
+    "--partial",
+    type=str,
+    default=None,
+    help="Run only one league. Use soccerdata league code e.g. 'ENG-Premier League'",
+)
+@click.option(
+    "--skip-identity",
+    is_flag=True,
+    default=False,
+    help="Skip downloading Reep CSVs (use existing identity data)",
+)
+@click.option(
+    "--skip-fbref",
+    is_flag=True,
+    default=False,
+    help="Skip FBref stats fetching",
+)
+@click.option(
+    "--skip-understat",
+    is_flag=True,
+    default=False,
+    help="Skip Understat stats fetching",
+)
+def run(local_db, season, partial, skip_identity, skip_fbref, skip_understat):
+    """Run the pipeline: identity -> stats -> resolve -> compute.
+
+    Use --partial to limit to one league:
+
+        pitch-intel run --partial "ENG-Premier League"
+
+    Valid league codes: ENG-Premier League, ESP-La Liga, ITA-Serie A,
+    GER-Bundesliga, FRA-Ligue 1
+    """
     conn = get_connection(local_db)
     init_schema(conn)
 
     run_id = log_pipeline_run(conn, status="running")
     errors = []
 
+    # Determine which leagues to fetch
+    if partial:
+        if partial in TOP_5_LEAGUES:
+            leagues_to_fetch = {partial: TOP_5_LEAGUES[partial]}
+        else:
+            click.echo(f"Unknown league code: {partial}")
+            click.echo(f"Valid codes: {', '.join(TOP_5_LEAGUES.keys())}")
+            return
+        # Understat uses the same league codes as soccerdata
+        understat_to_fetch = [partial] if partial in UNDERSTAT_LEAGUES else []
+        click.echo(f"Partial mode: {TOP_5_LEAGUES[partial]} only\n")
+    else:
+        leagues_to_fetch = TOP_5_LEAGUES
+        understat_to_fetch = UNDERSTAT_LEAGUES
+
+    people_count = 0
+    teams_count = 0
+
     # Stage 1: Identity
-    click.echo("Stage 1: Downloading Reep identity data...")
-    try:
-        from pipeline.stages.identity import download_reep_csvs, ingest_people_csv, ingest_teams_csv
-
-        with TemporaryDirectory() as tmp:
-            people_path, teams_path = download_reep_csvs(Path(tmp))
-            people_count = ingest_people_csv(conn, people_path)
-            teams_count = ingest_teams_csv(conn, teams_path)
-            click.echo(f"  Loaded {people_count} people, {teams_count} teams.")
-    except Exception as e:
-        errors.append(f"Identity stage failed: {e}")
-        click.echo(f"  ERROR: {e}")
-        people_count = 0
-        teams_count = 0
-
-    # Stage 2a: FBref
-    click.echo("Stage 2a: Fetching FBref stats...")
-    fbref_total = 0
-    for league_code, league_name in TOP_5_LEAGUES.items():
+    if not skip_identity:
+        click.echo("Stage 1: Downloading Reep identity data...")
         try:
-            from pipeline.stages.fbref import fetch_fbref_season, normalize_fbref_stats
-
-            raw = fetch_fbref_season(league_code, season)
-            if raw is not None:
-                normalized = normalize_fbref_stats(raw, season=season, league=league_name)
-                click.echo(f"  {league_name}: {len(normalized)} players fetched.")
-                fbref_total += len(normalized)
-        except Exception as e:
-            errors.append(f"FBref {league_name}: {e}")
-            click.echo(f"  {league_name} ERROR: {e}")
-
-    # Stage 2b: Understat
-    click.echo("Stage 2b: Fetching Understat stats...")
-    understat_total = 0
-    for league in UNDERSTAT_LEAGUES:
-        try:
-            from pipeline.stages.resolve import resolve_understat_to_reep
-            from pipeline.stages.understat import (
-                fetch_understat_league,
-                normalize_understat_players,
+            from pipeline.stages.identity import (
+                download_reep_csvs,
+                ingest_people_csv,
+                ingest_teams_csv,
             )
 
-            players_raw, _ = fetch_understat_league(league, season)
-            if players_raw is not None:
-                normalized = normalize_understat_players(players_raw, season=season, league=league)
-                resolved, unresolved = resolve_understat_to_reep(conn, normalized)
-                if len(resolved) > 0:
-                    upsert_player_stats(
-                        conn, resolved.drop("understat_id", "player_name", "team_name")
-                    )
-                click.echo(f"  {league}: {len(resolved)} resolved, {len(unresolved)} unresolved.")
-                understat_total += len(resolved)
+            with TemporaryDirectory() as tmp:
+                people_path, teams_path = download_reep_csvs(Path(tmp))
+                people_count = ingest_people_csv(conn, people_path)
+                teams_count = ingest_teams_csv(conn, teams_path)
+                click.echo(f"  Loaded {people_count} people, {teams_count} teams.")
         except Exception as e:
-            errors.append(f"Understat {league}: {e}")
-            click.echo(f"  {league} ERROR: {e}")
+            errors.append(f"Identity stage failed: {e}")
+            click.echo(f"  ERROR: {e}")
+    else:
+        click.echo("Stage 1: Skipped (--skip-identity)")
+        people_count = conn.execute("SELECT COUNT(*) FROM people").fetchone()[0]
+        teams_count = conn.execute("SELECT COUNT(*) FROM teams").fetchone()[0]
+
+    # Stage 2a: FBref
+    fbref_total = 0
+    if not skip_fbref:
+        click.echo("Stage 2a: Fetching FBref stats...")
+        for league_code, league_name in leagues_to_fetch.items():
+            try:
+                from pipeline.stages.fbref import fetch_fbref_season, normalize_fbref_stats
+
+                raw = fetch_fbref_season(league_code, season)
+                if raw is not None:
+                    normalized = normalize_fbref_stats(raw, season=season, league=league_name)
+                    click.echo(f"  {league_name}: {len(normalized)} players fetched.")
+                    fbref_total += len(normalized)
+            except Exception as e:
+                errors.append(f"FBref {league_name}: {e}")
+                click.echo(f"  {league_name} ERROR: {e}")
+    else:
+        click.echo("Stage 2a: Skipped (--skip-fbref)")
+
+    # Stage 2b: Understat
+    understat_total = 0
+    if not skip_understat:
+        click.echo("Stage 2b: Fetching Understat stats...")
+        for league in understat_to_fetch:
+            try:
+                from pipeline.stages.resolve import resolve_understat_to_reep
+                from pipeline.stages.understat import (
+                    fetch_understat_league,
+                    normalize_understat_players,
+                )
+
+                players_raw, _ = fetch_understat_league(league, season)
+                if players_raw is not None:
+                    normalized = normalize_understat_players(
+                        players_raw, season=season, league=league
+                    )
+                    resolved, unresolved = resolve_understat_to_reep(conn, normalized)
+                    if len(resolved) > 0:
+                        upsert_player_stats(
+                            conn, resolved.drop("understat_id", "player_name", "team_name")
+                        )
+                    click.echo(
+                        f"  {league}: {len(resolved)} resolved, {len(unresolved)} unresolved."
+                    )
+                    understat_total += len(resolved)
+            except Exception as e:
+                errors.append(f"Understat {league}: {e}")
+                click.echo(f"  {league} ERROR: {e}")
+    else:
+        click.echo("Stage 2b: Skipped (--skip-understat)")
 
     # Stage 2c: ClubElo
     click.echo("Stage 2c: Fetching ClubElo ratings...")
@@ -140,7 +207,7 @@ def run(local_db, season):
                stats_fetched = ?, error_log = ?
            WHERE id = ?""",
         (
-            datetime.utcnow().isoformat(),
+            datetime.now(UTC).isoformat(),
             status,
             people_count,
             teams_count,
