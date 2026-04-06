@@ -100,7 +100,7 @@ export default function ExplorePage() {
               <select
                 value={xStat}
                 onChange={(e) => setXStat(e.target.value)}
-                className="rounded-lg border border-gray-700 bg-gray-900 px-3 py-2 text-sm"
+                className="rounded-lg border border-gray-600 bg-gray-800 px-3 py-2 text-sm text-white"
               >
                 {STATS.map((s) => (
                   <option key={s} value={s}>{formatLabel(s)}</option>
@@ -113,7 +113,7 @@ export default function ExplorePage() {
               <select
                 value={yStat}
                 onChange={(e) => setYStat(e.target.value)}
-                className="rounded-lg border border-gray-700 bg-gray-900 px-3 py-2 text-sm"
+                className="rounded-lg border border-gray-600 bg-gray-800 px-3 py-2 text-sm text-white"
               >
                 {STATS.map((s) => (
                   <option key={s} value={s}>{formatLabel(s)}</option>
@@ -126,7 +126,7 @@ export default function ExplorePage() {
               <select
                 value={league}
                 onChange={(e) => setLeague(e.target.value)}
-                className="rounded-lg border border-gray-700 bg-gray-900 px-3 py-2 text-sm"
+                className="rounded-lg border border-gray-600 bg-gray-800 px-3 py-2 text-sm text-white"
               >
                 <option value="">All Leagues</option>
                 {LEAGUES.map((l) => (
@@ -140,7 +140,7 @@ export default function ExplorePage() {
               <select
                 value={position}
                 onChange={(e) => setPosition(e.target.value)}
-                className="rounded-lg border border-gray-700 bg-gray-900 px-3 py-2 text-sm"
+                className="rounded-lg border border-gray-600 bg-gray-800 px-3 py-2 text-sm text-white"
               >
                 <option value="">All Positions</option>
                 {POSITIONS.map((p) => (
