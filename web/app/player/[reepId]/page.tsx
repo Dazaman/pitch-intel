@@ -1,8 +1,9 @@
-import { getPlayer, getPlayerRadar, getPlayerShots, getPlayerStats } from "@/lib/api";
+import { getPlayer, getPlayerRadar, getPlayerShots, getPlayerStats, getSimilarPlayers } from "@/lib/api";
 import PlayerHero from "@/components/player-hero";
 import StatsTable from "@/components/stats-table";
 import RadarChartComponent from "@/components/radar-chart";
 import ShotMap from "@/components/shot-map";
+import SimilarPlayers from "@/components/similar-players";
 
 interface Props {
   params: Promise<{ reepId: string }>;
@@ -11,13 +12,14 @@ interface Props {
 export default async function PlayerPage({ params }: Props) {
   const { reepId } = await params;
 
-  let player, stats, radar, shots;
+  let player, stats, radar, shots, similar;
   try {
-    [player, stats, radar, shots] = await Promise.all([
+    [player, stats, radar, shots, similar] = await Promise.all([
       getPlayer(reepId),
       getPlayerStats(reepId),
       getPlayerRadar(reepId),
       getPlayerShots(reepId),
+      getSimilarPlayers(reepId),
     ]);
   } catch {
     return (
@@ -48,6 +50,13 @@ export default async function PlayerPage({ params }: Props) {
         <section>
           <h2 className="text-xl font-semibold mb-4">Shot Map</h2>
           <ShotMap shots={shots} />
+        </section>
+      )}
+
+      {similar.length > 0 && (
+        <section>
+          <h2 className="text-xl font-semibold mb-4">Similar Players</h2>
+          <SimilarPlayers players={similar} />
         </section>
       )}
     </div>
