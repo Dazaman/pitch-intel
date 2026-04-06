@@ -69,6 +69,35 @@ def resolve_understat_to_reep(
     return resolved, unresolved
 
 
+def build_team_understat_index(conn: sqlite3.Connection) -> dict:
+    """Build lookup: understat_team_id (str) -> reep_id."""
+    rows = conn.execute(
+        "SELECT reep_id, key_understat FROM teams WHERE key_understat IS NOT NULL"
+    ).fetchall()
+    return {row[1]: row[0] for row in rows}
+
+
+def resolve_understat_teams(
+    conn: sqlite3.Connection,
+    stats_df: pl.DataFrame,
+) -> pl.DataFrame:
+    """Add team_reep_id to a DataFrame that has a team_id column (Understat team ID).
+
+    Also populates squad_membership for resolved player-team pairs.
+    Returns the DataFrame with team_reep_id added.
+    """
+    team_idx = build_team_understat_index(conn)
+
+    # The normalized Understat DataFrame may have team_name but not team_id
+    # We need the original team_id from soccerdata. If present, use it directly.
+    if "team_id" in stats_df.columns:
+        team_reep_ids = [team_idx.get(str(tid)) for tid in stats_df["team_id"].to_list()]
+    else:
+        team_reep_ids = [None] * len(stats_df)
+
+    return stats_df.with_columns(pl.Series("team_reep_id", team_reep_ids))
+
+
 def resolve_clubelo_to_reep(
     conn: sqlite3.Connection,
     elo_df: pl.DataFrame,

@@ -3,6 +3,7 @@ from pathlib import Path
 from tempfile import TemporaryDirectory
 
 import click
+import polars as pl
 
 from pipeline.config import CURRENT_SEASON, TOP_5_LEAGUES, UNDERSTAT_LEAGUES
 from pipeline.db import get_connection, init_schema, log_pipeline_run, upsert_player_stats
@@ -135,7 +136,10 @@ def run(local_db, season, partial, skip_identity, skip_fbref, skip_understat):
         click.echo("Stage 2b: Fetching Understat stats...")
         for league in understat_to_fetch:
             try:
-                from pipeline.stages.resolve import resolve_understat_to_reep
+                from pipeline.stages.resolve import (
+                    resolve_understat_teams,
+                    resolve_understat_to_reep,
+                )
                 from pipeline.stages.understat import (
                     fetch_understat_league,
                     normalize_understat_players,
@@ -148,9 +152,41 @@ def run(local_db, season, partial, skip_identity, skip_fbref, skip_understat):
                     )
                     resolved, unresolved = resolve_understat_to_reep(conn, normalized)
                     if len(resolved) > 0:
-                        upsert_player_stats(
-                            conn, resolved.drop("understat_id", "player_name", "team_name")
+                        # Resolve team IDs
+                        resolved = resolve_understat_teams(conn, resolved)
+
+                        # Write player stats
+                        stats_cols = [
+                            c
+                            for c in resolved.columns
+                            if c
+                            not in (
+                                "understat_id",
+                                "player_name",
+                                "team_name",
+                                "team_id",
+                            )
+                        ]
+                        upsert_player_stats(conn, resolved.select(stats_cols))
+
+                        # Populate squad_membership
+                        squad_rows = resolved.filter(pl.col("team_reep_id").is_not_null()).select(
+                            "reep_id", "team_reep_id", "season", "league"
                         )
+                        for row in squad_rows.to_dicts():
+                            conn.execute(
+                                """INSERT OR IGNORE INTO squad_membership
+                                   (reep_id, team_reep_id, season, league)
+                                   VALUES (?, ?, ?, ?)""",
+                                (
+                                    row["reep_id"],
+                                    row["team_reep_id"],
+                                    row["season"],
+                                    row["league"],
+                                ),
+                            )
+                        conn.commit()
+
                     click.echo(
                         f"  {league}: {len(resolved)} resolved, {len(unresolved)} unresolved."
                     )
@@ -174,11 +210,41 @@ def run(local_db, season, partial, skip_identity, skip_fbref, skip_understat):
         errors.append(f"ClubElo: {e}")
         click.echo(f"  ERROR: {e}")
 
+    # Stage 3: Aggregate team stats from squad data
+    click.echo("Stage 3: Aggregating team stats...")
+    try:
+        from pipeline.db import upsert_team_stats
+
+        team_rows = conn.execute(
+            """SELECT sm.team_reep_id, sm.season, sm.league,
+                      SUM(s.goals) as goals_for,
+                      SUM(s.xg) as xg,
+                      COUNT(DISTINCT sm.reep_id) as squad_size
+               FROM squad_membership sm
+               JOIN player_season_stats s
+                   ON sm.reep_id = s.reep_id AND sm.season = s.season
+               GROUP BY sm.team_reep_id, sm.season, sm.league""",
+        ).fetchall()
+
+        for row in team_rows:
+            conn.execute(
+                """INSERT INTO team_season_stats
+                   (reep_id, season, league, source, goals_for, xg)
+                   VALUES (?, ?, ?, ?, ?, ?)
+                   ON CONFLICT(reep_id, season, league, source) DO UPDATE SET
+                   goals_for = excluded.goals_for, xg = excluded.xg,
+                   fetched_at = datetime('now')""",
+                (row[0], row[1], row[2], "understat", row[3], row[4]),
+            )
+        conn.commit()
+        click.echo(f"  {len(team_rows)} team stats aggregated.")
+    except Exception as e:
+        errors.append(f"Team stats aggregation: {e}")
+        click.echo(f"  ERROR: {e}")
+
     # Stage 4: Compute
     click.echo("Stage 4: Computing per-90 stats and percentiles...")
     try:
-        import polars as pl
-
         from pipeline.db import upsert_player_per90
         from pipeline.stages.compute import compute_per90, compute_percentiles
 
@@ -242,8 +308,6 @@ def run(local_db, season, partial, skip_identity, skip_fbref, skip_understat):
     # Stage 5: ML features
     click.echo("Stage 5: Computing ML features...")
     try:
-        import polars as pl
-
         from pipeline.db import upsert_embeddings, upsert_team_profiles
         from pipeline.stages.ml import compute_clusters, compute_embeddings, compute_team_profiles
 

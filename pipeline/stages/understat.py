@@ -19,6 +19,7 @@ def normalize_understat_players(
             "understat_id": [str(x) for x in df["player_id"].tolist()],
             "player_name": df["player"].tolist(),
             "team_name": df["team"].tolist(),
+            "team_id": [str(x) for x in df["team_id"].tolist()],
             "season": [season] * len(df),
             "league": [league] * len(df),
             "minutes_played": df["minutes"].tolist(),
